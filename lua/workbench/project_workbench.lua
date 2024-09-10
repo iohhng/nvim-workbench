@@ -6,11 +6,11 @@ project_workbench_bufnr = vim.api.nvim_create_buf(false, true)
 project_workbench_initialized = false
 
 function project_workbench.filepath()
-  return utils.workbench_path()  .. "/" .. "workbench.md"
+  return vim.fn.expand('~/workspace/todo.md')
 end
 
 function project_workbench.initialize()
-  --Get the current UI
+  -- Get the current UI
   ui = vim.api.nvim_list_uis()[1]
 
   local width = round(ui.width * 0.5)
@@ -25,13 +25,8 @@ function project_workbench.initialize()
 end
 
 function project_workbench.toggle()
-  -- early return if not a git repo
-  if utils.is_git_repo() ~= "true" then
-    return vim.api.nvim_err_writeln("Sorry, Workbench only works in a Git Repo")
-  end
-
-  if utils.directory_not_exist(utils.workbench_path()) then
-    utils.create_directory()
+  if utils.directory_not_exist(vim.fn.expand('~/workspace')) then
+    utils.create_directory(vim.fn.expand('~/workspace'))
   end
 
   -- override ui every time toggle is called
