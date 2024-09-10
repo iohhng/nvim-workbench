@@ -1,36 +1,55 @@
-lua require('workbench')
+local project_workbench = {}
+local utils = require('workbench.utils')
 
-" search() returns 0 if it the pattern was not found
-function <SID>SearchCheck()
-  return (search('\[ \]', 'nc', line('.')) || search('\[ \]', 'nbc', line('.')))
-endfunction
+-- create a global bufnr
+project_workbench_bufnr = vim.api.nvim_create_buf(false, true)
+project_workbench_initialized = false
 
-" When there are no checkbox, it will add one
-" - testing -> - [ ] testing
-" Toggle checkbox
-" - [ ] testing -> - [x] testing
-" - [x] testing -> - [ ] testing
-nnoremap <expr> <silent> <Plug>WorkbenchToggleCheckbox ":call markdown#checkbox#toggle('x')<CR>"
+function project_workbench.filepath()
+  return vim.fn.expand('~/workspace/todo.md')
+end
 
-" Outdated no longer needed
-" Toggle checkbox does the job now
-" Create checkbox
-" - testing -> - [ ] testing
-" * testing -> * [ ] testing
-" testing -> [ ] testing
-nnoremap <expr> <silent> <Plug>WorkbenchAddCheckbox ":call markdown#checkbox#toggle(' ')<CR>"
+function project_workbench.initialize()
+  -- Get the current UI
+  ui = vim.api.nvim_list_uis()[1]
 
-nnoremap <expr> <silent> <Plug>ToggleWorkbench ":lua require('workbench').toggle_project_workbench()<CR>"
-nnoremap <expr> <silent> <Plug>ToggleProjectWorkbench ":lua require('workbench').toggle_project_workbench()<CR>"
-nnoremap <expr> <silent> <Plug>ToggleBranchWorkbench ":lua require('workbench').toggle_branch_workbench()<CR>"
+  local width = round(ui.width * 0.5)
+  local height = round(ui.height * 0.5)
 
-" Disable highlighting for floating window
-hi NormalFloat guibg=none guifg=none
+  project_workbench_initialized = true
 
-" Update project workbench title. 
-autocmd bufnewfile workbench.md call append(0, '# ' . split(expand('%:p:h:t'), '\v\n')[0] . " Workbench!")
-autocmd bufnewfile *branchbench.md call append(0, '# '. split(expand('%:p:h:t'), '\v\n')[0] . '--' . split(system('git branch --show-current', '\v\n'))[0] . " Workbench!")
+  local win_id = vim.api.nvim_open_win(project_workbench_bufnr, true, utils.window_config(width, height))
 
-" Auto save on buf leave
-au BufLeave workbench.md silent! wall
-au BufLeave *branchbench.md silent! wall
+  open_file_cmd = "e " .. project_workbench.filepath()
+  vim.api.nvim_command(open_file_cmd)
+end
+
+function project_workbench.toggle()
+  if utils.directory_not_exist(vim.fn.expand('~/workspace')) then
+    utils.create_directory(vim.fn.expand('~/workspace'))
+  end
+
+  -- override ui every time toggle is called
+  ui = vim.api.nvim_list_uis()[1]
+
+  local buf_hidden = 0
+  local buf_info = vim.api.nvim_call_function('getbufinfo', {project_workbench.filepath()})[1]
+
+  if buf_info then
+    buf_hidden = buf_info.hidden
+  end
+
+  local current_bufnr = vim.api.nvim_win_get_buf(0)
+
+  if not project_workbench_initialized then
+    project_workbench.initialize()
+  elseif current_bufnr == project_workbench_bufnr then
+    utils.hide_workbench()
+  elseif buf_hidden == 0 and buf_info.windows[1] then
+    vim.api.nvim_set_current_win(buf_info.windows[1])
+  else
+    utils.show_workbench(project_workbench_bufnr)
+  end
+end
+
+return project_workbench
